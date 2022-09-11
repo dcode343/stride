@@ -49,6 +49,41 @@
         </StackPanel>
       </StackPanel>
     </Border>
+    <Border Background="{StaticResource EmphasisColorBrush}" Margin="20,0">
+      <TextBlock Text="{sd:Localize Animations}" Margin="20,10" FontSize="16"/>
+    </Border>
+    <Border Margin="20,10,20,20">
+      <StackPanel>
+        <CheckBox Content="{sd:Localize Import animations, Context=Button}" Margin="5" IsChecked="{Binding ImportAnimations}"/> 
+        <CheckBox Content="{sd:Localize Use another model for animation previews:, Context=Button}" Margin="5" IsChecked="{Binding ReuseModel}" x:Name="ReuseModelCheckBox" />
+        <StackPanel>
+          <ContentPresenter Margin="25,5,5,5" Content="{Binding ReferenceViewModel.RootNode.Model}"
+                          ContentTemplate="{StaticResource SimpleContentReferencePropertyTemplate}">
+            <i:Interaction.Behaviors>
+              <sd:OnEventSetPropertyBehavior EventName="Click" EventOwnerType="{x:Type Button}"
+                                               Target="{Binding ElementName=ReuseModelCheckBox}"
+                                               Property="{x:Static CheckBox.IsCheckedProperty}" Value="{sd:True}"/>
+            </i:Interaction.Behaviors>
+          </ContentPresenter>
+        </StackPanel>
+        <ListBox ItemsSource="{Binding AvailableAnimations}" Width="400" Height="200" HorizontalAlignment="Left" Margin="5" Name="AnimationListBox">
+          <ListBox.ItemTemplate>
+            <DataTemplate>
+              <StackPanel>
+                <Label Content="{Binding Key.FullPath}"/>
+                <ListBox ItemsSource="{Binding Value}" Width="300" Height="177" HorizontalAlignment="Left" Margin="5">
+                  <ListBox.ItemTemplate>
+                    <DataTemplate>
+                      <CheckBox Content="{Binding AnimName}" IsChecked="{Binding IsAnimSelected}"/>
+                    </DataTemplate>
+                  </ListBox.ItemTemplate>
+                </ListBox>
+              </StackPanel>
+            </DataTemplate>
+          </ListBox.ItemTemplate>
+        </ListBox>
+      </StackPanel>
+    </Border>
     <UniformGrid Rows="1" Margin="20">
       <Button Content="{sd:Localize OK, Context=Button}" Margin="0,0,20,0" Padding="8" Click="ButtonOk" IsDefault="True"/>
       <Button Content="{sd:Localize Cancel, Context=Button}" Padding="8" Click="ButtonCancel" IsCancel="True"/>

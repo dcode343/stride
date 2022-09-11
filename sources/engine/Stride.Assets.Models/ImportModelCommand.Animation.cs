@@ -17,6 +17,7 @@ namespace Stride.Assets.Models
 {
     public partial class ImportModelCommand
     {
+        public string AnimationName { get; set; }
         public AnimationRepeatMode AnimationRepeatMode { get; set; }
         public bool AnimationRootMotion { get; set; }
         public TimeSpan StartFrame { get; set; } = TimeSpan.Zero;

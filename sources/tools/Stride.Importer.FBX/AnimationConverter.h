@@ -64,22 +64,43 @@ namespace Stride {
 					return false;
 				}
 
-				AnimationInfo^ ProcessAnimation(String^ inputFilename, String^ vfsOutputFilename, bool importCustomAttributeAnimations)
+				AnimationInfo^ ProcessAnimation(String^ inputFilename, String^ vfsOutputFilename, String^ animationName, bool importCustomAttributeAnimations)
 				{
 					auto animationData = gcnew AnimationInfo();
 
 					int animStackCount = scene->GetMemberCount<FbxAnimStack>();
 					if (animStackCount == 0)
 						return animationData;
-						
-					// We support only anim stack count == 1
-					if (animStackCount > 1)
+
+					int	animIndex = 0;
+
+					if (animationName != "")
+					{
+						// Find animation stack with name animationName
+						animIndex = -1;
+						for (size_t i = 0; i < animStackCount; i++)
+						{
+							auto animStackName = gcnew String(scene->GetMember<FbxAnimStack>(i)->GetName());
+							if (animStackName == animationName)
+							{
+								animIndex = i;
+								break;
+							}
+						}
+						if (animIndex == -1) {
+							logger->Warning(String::Format("Animation stack of name '{2}' not found in '{0}'",
+								gcnew String(inputFilename), gcnew String(vfsOutputFilename), animationName), (CallerInfo^)nullptr);
+							return animationData;
+						}
+					}
+					else if (animStackCount > 1)
 					{
 						logger->Warning(String::Format("Multiple FBX animation stacks detected in '{0}', exporting only the first one to '{1}",
 							gcnew String(inputFilename), gcnew String(vfsOutputFilename)), (CallerInfo^)nullptr);
 					}
 
-					FbxAnimStack* animStack = scene->GetMember<FbxAnimStack>(0);
+					FbxAnimStack* animStack = scene->GetMember<FbxAnimStack>(animIndex);
+
 					int animLayerCount = animStack->GetMemberCount<FbxAnimLayer>();
 
 					// We support only anim layer count == 1
@@ -134,6 +155,16 @@ namespace Stride {
 					return animationData;
 				}
 
+				List<String^>^ GetAnimationStackNames()
+				{
+					int animStackCount = scene->GetMemberCount<FbxAnimStack>();
+					auto animationStacks = gcnew List<String^>();
+					for (int i = 0; i < animStackCount; ++i) {
+						FbxAnimStack* animStack = scene->GetMember<FbxAnimStack>(i);
+						animationStacks->Add(gcnew String(animStack->GetName()));
+					}
+					return animationStacks;
+				}
 				List<String^>^ ExtractAnimationNodesNoInit()
 				{
 					int animStackCount = scene->GetMemberCount<FbxAnimStack>();

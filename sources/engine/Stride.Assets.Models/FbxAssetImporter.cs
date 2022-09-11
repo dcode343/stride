@@ -37,10 +37,10 @@ namespace Stride.Assets.Models
         }
 
         /// <inheritdoc/>
-        public override void GetAnimationDuration(UFile localPath, Logger logger, AssetImporterParameters importParameters, out TimeSpan startTime, out TimeSpan endTime)
+        public override void GetAnimationDuration(UFile localPath, Logger logger, AssetImporterParameters importParameters, string animationName, out TimeSpan startTime, out TimeSpan endTime)
         {
             var meshConverter = new Importer.FBX.MeshConverter(logger);
-            var durationInSeconds = meshConverter.GetAnimationDuration(localPath.FullPath);
+            var durationInSeconds = meshConverter.GetAnimationDuration(localPath.FullPath, animationName);
 
             startTime = TimeSpan.Zero;
             endTime = TimeSpan.FromSeconds(durationInSeconds);

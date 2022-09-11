@@ -1480,6 +1480,8 @@ public:
 			entityInfo->Models = ExtractModel(scene, meshNames, materialNames, nodeNames);
 			entityInfo->Nodes = ExtractNodeHierarchy(scene, nodeNames);
 			entityInfo->AnimationNodes = ExtractAnimations(scene, animationNames);
+			//TODO: Add support for multiple animation importing
+			entityInfo->AnimationStacks = gcnew List<String^>();
 			
 			return entityInfo;
 		}

@@ -18,9 +18,16 @@ using Stride.Importer.Common;
 
 namespace Stride.Assets.Models
 {
+    [DataContract]
+    public class SelectableAnimation
+    {
+        public string AnimName { get; set; }
+        public bool IsAnimSelected { get; set; }
+    }
     public abstract class ModelAssetImporter : AssetImporterBase
     {
         public static readonly PropertyKey<bool> DeduplicateMaterialsKey = new PropertyKey<bool>("DeduplicateMaterials", typeof(ModelAssetImporter));
+        public static readonly PropertyKey<Dictionary<UFile, List<SelectableAnimation>>> AvailableAnimationsKey = new PropertyKey<Dictionary<UFile, List<SelectableAnimation>>>("AvailableAnimations", typeof(ModelAssetImporter));
 
         public override IEnumerable<Type> RootAssetTypes
         {
@@ -58,7 +65,7 @@ namespace Stride.Assets.Models
         /// <param name="importParameters">The import parameters.</param>
         /// <param name="startTime">Returns the first (start) keyframe's time for the animation</param>
         /// <param name="endTime">Returns the last (end) keyframe's time for the animation</param>
-        public abstract void GetAnimationDuration(UFile localPath, Logger logger, AssetImporterParameters importParameters, out TimeSpan startTime, out TimeSpan endTime);
+        public abstract void GetAnimationDuration(UFile localPath, Logger logger, AssetImporterParameters importParameters, string animationName, out TimeSpan startTime, out TimeSpan endTime);
 
         /// <summary>
         /// Imports the model.
@@ -82,40 +89,59 @@ namespace Stride.Assets.Models
 
             var isImportingTexture = importParameters.IsTypeSelectedForOutput<TextureAsset>();
 
-            // 1. Textures
+            var isImportingAnimations = importParameters.IsTypeSelectedForOutput<AnimationAsset>();
+
+            // Textures
             if (isImportingTexture)
             {
                 ImportTextures(entityInfo.TextureDependencies, rawAssetReferences);
             }
 
-            // 2. Skeleton
+            // Skeleton
             AssetItem skeletonAsset = null;
             if (importParameters.IsTypeSelectedForOutput<SkeletonAsset>())
             {
                 skeletonAsset = ImportSkeleton(rawAssetReferences, localPath, localPath, entityInfo);
             }
 
-            // 3. Animation
-            if (importParameters.IsTypeSelectedForOutput<AnimationAsset>())
-            {
-                TimeSpan startTime, endTime;
-                GetAnimationDuration(localPath, importParameters.Logger, importParameters, out startTime, out endTime);
-
-                ImportAnimation(rawAssetReferences, localPath, entityInfo.AnimationNodes, isImportingModel, skeletonAsset, startTime, endTime);
-            }
-
-            // 4. Materials
+            // Materials
             if (isImportingMaterial)
             {
                 ImportMaterials(rawAssetReferences, entityInfo.Materials);
             }
 
-            // 5. Model
+            // Model
+            AssetItem modelAsset = null;
             if (isImportingModel)
             {
-                ImportModel(rawAssetReferences, localPath, localPath, entityInfo, false, skeletonAsset);
+                modelAsset = ImportModel(rawAssetReferences, localPath, localPath, entityInfo, false, skeletonAsset);
             }
 
+            // Animations
+            if (isImportingAnimations)
+            {
+                var availableAnimations = importParameters.InputParameters.Get(AvailableAnimationsKey);
+                if (availableAnimations != null)
+                {
+                    var selectedAnimations = availableAnimations[localPath].Where(x => x.IsAnimSelected == true).Select(x => x.AnimName);
+
+                    foreach (var item in selectedAnimations)
+                    {
+                        TimeSpan startTime, endTime;
+                        GetAnimationDuration(localPath, importParameters.Logger, importParameters, item, out startTime, out endTime);
+
+                        ImportAnimation(rawAssetReferences, localPath, entityInfo.AnimationNodes, isImportingModel, skeletonAsset, modelAsset, item, startTime, endTime);
+                    }
+                }
+                else
+                {
+                    //TODO: create menu for importing a specific animation when user choses to import animation directly (not from model import menu)
+                    TimeSpan startTime, endTime;
+                    GetAnimationDuration(localPath, importParameters.Logger, importParameters, "", out startTime, out endTime);
+
+                    ImportAnimation(rawAssetReferences, localPath, entityInfo.AnimationNodes, isImportingModel, skeletonAsset, modelAsset, "", startTime, endTime);
+                }
+            }
             return rawAssetReferences;
         }
 
@@ -141,23 +167,32 @@ namespace Stride.Assets.Models
             return assetItem;
         }
 
-        private static void ImportAnimation(List<AssetItem> assetReferences, UFile localPath, List<string> animationNodes, bool shouldPostFixName, AssetItem skeletonAsset, TimeSpan animationStartTime, TimeSpan animationEndTime)
+        //HACK: could GetEntityInfo().AnimationStacks directly but references to EntityInfo's project gave trouble with nuget on runtime
+        public List<string> GetAnimationList(UFile localPath, Logger logger, AssetImporterParameters importParameters)
+        {
+            return GetEntityInfo(localPath, logger, importParameters).AnimationStacks;
+        }
+
+        private static void ImportAnimation(List<AssetItem> assetReferences, UFile localPath, List<string> animationNodes, bool shouldPostFixName, AssetItem skeletonAsset, AssetItem modelAsset, string animationName, TimeSpan animationStartTime, TimeSpan animationEndTime)
         {
             if (animationNodes != null && animationNodes.Count > 0)
             {
                 var assetSource = localPath;
 
-                var asset = new AnimationAsset { Source = assetSource, AnimationTimeMaximum = animationEndTime, AnimationTimeMinimum = animationStartTime };
-                var animUrl = localPath.GetFileNameWithoutExtension() + (shouldPostFixName ? " Animation" : "");
+                var asset = new AnimationAsset { Source = assetSource, AnimationName = animationName, AnimationTimeMaximum = animationEndTime, AnimationTimeMinimum = animationStartTime };
+                var animUrl = localPath.GetFileNameWithoutExtension() + (shouldPostFixName ? (animationName.IsNullOrEmpty() ? " Animation" : " " + animationName.Replace("|", " ")) : "");
 
                 if (skeletonAsset != null)
                     asset.Skeleton = AttachedReferenceManager.CreateProxyObject<Skeleton>(skeletonAsset.Id, skeletonAsset.Location);
+
+                if (modelAsset != null)
+                    asset.PreviewModel = AttachedReferenceManager.CreateProxyObject<Model>(modelAsset.Id, modelAsset.Location);
 
                 assetReferences.Add(new AssetItem(animUrl, asset));
             }
         }
 
-        private static void ImportModel(List<AssetItem> assetReferences, UFile assetSource, UFile localPath, EntityInfo entityInfo, bool shouldPostFixName, AssetItem skeletonAsset)
+        private static AssetItem ImportModel(List<AssetItem> assetReferences, UFile assetSource, UFile localPath, EntityInfo entityInfo, bool shouldPostFixName, AssetItem skeletonAsset)
         {
             var asset = new ModelAsset { Source = assetSource };
 
@@ -190,9 +225,11 @@ namespace Stride.Assets.Models
             if (skeletonAsset != null)
                 asset.Skeleton = AttachedReferenceManager.CreateProxyObject<Skeleton>(skeletonAsset.Id, skeletonAsset.Location);
 
-            var modelUrl = new UFile(localPath.GetFileNameWithoutExtension() + (shouldPostFixName?" Model": ""));
+            var modelUrl = new UFile(localPath.GetFileNameWithoutExtension() + (shouldPostFixName ? " Model" : ""));
             var assetItem = new AssetItem(modelUrl, asset);
             assetReferences.Add(assetItem);
+
+            return assetItem;
         }
 
         private static void ImportMaterials(List<AssetItem> assetReferences, Dictionary<string, MaterialAsset> materials)
@@ -269,7 +306,7 @@ namespace Stride.Assets.Models
             //        var isTransparent = false;
             //        if (material.Parameters.ContainsKey(MaterialParameters.HasTransparency))
             //            isTransparent = (bool)material.Parameters[MaterialParameters.HasTransparency];
-                    
+
             //        if (!isTransparent)
             //        {
             //            // remove the diffuse node

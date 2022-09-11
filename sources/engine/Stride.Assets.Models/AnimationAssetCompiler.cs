@@ -50,6 +50,7 @@ namespace Stride.Assets.Models
                 return;
             }
 
+            sourceBuildCommand.AnimationName = asset.AnimationName;
             sourceBuildCommand.Mode = ImportModelCommand.ExportMode.Animation;
             sourceBuildCommand.SourcePath = assetSource;
             sourceBuildCommand.Location = targetUrlInStorage;
@@ -103,6 +104,7 @@ namespace Stride.Assets.Models
                     return;
                 }
 
+                baseBuildCommand.AnimationName = asset.AnimationName;
                 baseBuildCommand.FailOnEmptyAnimation = false;
                 baseBuildCommand.Mode = ImportModelCommand.ExportMode.Animation;
                 baseBuildCommand.SourcePath = baseAssetSource;

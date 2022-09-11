@@ -58,6 +58,7 @@ public ref class EntityInfo
 public:
 	List<String^>^ TextureDependencies;
 	Dictionary<String^, MaterialAsset^>^ Materials;
+	List<String^>^ AnimationStacks;
 	List<String^>^ AnimationNodes;
 	List<MeshParameters^>^ Models;
 	List<NodeInfo^>^ Nodes;

@@ -28,6 +28,8 @@ namespace Stride.Assets.Presentation.Templates
         public static SettingsKey<bool> ImportTextures = new SettingsKey<bool>("Templates/ModelFromFile/ImportTextures", PackageUserSettings.SettingsContainer, true);
         public static SettingsKey<bool> ImportSkeleton = new SettingsKey<bool>("Templates/ModelFromFile/ImportSkeleton", PackageUserSettings.SettingsContainer, true);
         public static SettingsKey<AssetId> DefaultSkeleton = new SettingsKey<AssetId>("Templates/ModelFromFile/DefaultSkeleton", PackageUserSettings.SettingsContainer, AssetId.Empty);
+        public static SettingsKey<bool> ImportAnimations = new SettingsKey<bool>("Templates/ModelFromFile/ImportAnimations", PackageUserSettings.SettingsContainer, true);
+        public static SettingsKey<AssetId> DefaultModel = new SettingsKey<AssetId>("Templates/ModelFromFile/DefaultModel", PackageUserSettings.SettingsContainer, AssetId.Empty);
     }
 
     public class ModelFromFileTemplateGenerator : AssetFromFileTemplateGenerator
@@ -36,11 +38,15 @@ namespace Stride.Assets.Presentation.Templates
 
         public static Guid Id = new Guid("3B778954-54C4-4FF3-97EF-4CD7AEA0B97D");
 
+        private Dictionary<UFile, List<SelectableAnimation>> availableAnimations;
+
         protected static readonly PropertyKey<bool> ImportMaterialsKey = new PropertyKey<bool>("ImportMaterials", typeof(ModelFromFileTemplateGenerator));
         protected static readonly PropertyKey<bool> DeduplicateMaterialsKey = new PropertyKey<bool>("DeduplicateMaterials", typeof(ModelFromFileTemplateGenerator));
         protected static readonly PropertyKey<bool> ImportTexturesKey = new PropertyKey<bool>("ImportTextures", typeof(ModelFromFileTemplateGenerator));
         protected static readonly PropertyKey<bool> ImportSkeletonKey = new PropertyKey<bool>("ImportSkeleton", typeof(ModelFromFileTemplateGenerator));
         protected static readonly PropertyKey<Skeleton> SkeletonToUseKey = new PropertyKey<Skeleton>("SkeletonToUse", typeof(ModelFromFileTemplateGenerator));
+        protected static readonly PropertyKey<bool> ImportAnimationsKey = new PropertyKey<bool>("ImportAnimations", typeof(ModelFromFileTemplateGenerator));
+        protected static readonly PropertyKey<Model> ModelToReuseKey = new PropertyKey<Model>("ModelToReuse", typeof(ModelFromFileTemplateGenerator));
 
         public override bool IsSupportingTemplate(TemplateDescription templateDescription)
         {
@@ -57,6 +63,25 @@ namespace Stride.Assets.Presentation.Templates
             if (files == null)
                 return true;
 
+            availableAnimations = new Dictionary<UFile, List<SelectableAnimation>>();
+            foreach (var file in files)
+            {
+                // TODO: should we allow to select the importer?
+                var importer = AssetRegistry.FindImporterForFile(file).OfType<ModelAssetImporter>().FirstOrDefault();
+                if (importer == null)
+                {
+                    parameters.Logger.Warning($"No importer found for file \"{file}\"");
+                    continue;
+                }
+
+                var animationStacks = importer.GetAnimationList(file, null, new AssetImporterParameters { });
+                var availableAnimationsForFile = new List<SelectableAnimation>();
+                foreach (var animationStack in animationStacks)
+                {
+                    availableAnimationsForFile.Add(new SelectableAnimation { AnimName = animationStack, IsAnimSelected = true });
+                }
+                availableAnimations.Add(file, availableAnimationsForFile);
+            }
             var showDeduplicateMaterialsCheckBox = files.Any(x => ImportAssimpCommand.IsSupportingExtensions(x.GetFileExtension()));
             var showFbxDedupeNotSupportedWarning = showDeduplicateMaterialsCheckBox && files.Any(x => ImportFbxCommand.IsSupportingExtensions(x.GetFileExtension()));
             // Load settings from the last time this template was used for this project
@@ -70,7 +95,9 @@ namespace Stride.Assets.Presentation.Templates
                     ShowFbxDedupeNotSupportedWarning = showFbxDedupeNotSupportedWarning,
                     DeduplicateMaterials = ModelFromFileTemplateSettings.DeduplicateMaterials.GetValue(profile, true),
                     ImportTextures = ModelFromFileTemplateSettings.ImportTextures.GetValue(profile, true),
-                    ImportSkeleton = ModelFromFileTemplateSettings.ImportSkeleton.GetValue(profile, true)
+                    ImportSkeleton = ModelFromFileTemplateSettings.ImportSkeleton.GetValue(profile, true),
+                    ImportAnimations = ModelFromFileTemplateSettings.ImportAnimations.GetValue(profile, true),
+                    AvailableAnimations = availableAnimations
                 }
             };
 
@@ -80,6 +107,14 @@ namespace Stride.Assets.Presentation.Templates
             {
                 window.Parameters.ReuseSkeleton = true;
                 window.Parameters.SkeletonToReuse = ContentReferenceHelper.CreateReference<Skeleton>(skeleton);
+            }
+
+            var modelId = ModelFromFileTemplateSettings.DefaultModel.GetValue();
+            var model = SessionViewModel.Instance?.GetAssetById(modelId);
+            if (model != null)
+            {
+                window.Parameters.ReuseModel = true;
+                window.Parameters.ModelToReuse = ContentReferenceHelper.CreateReference<Model>(model);
             }
 
             await window.ShowModal();
@@ -94,6 +129,9 @@ namespace Stride.Assets.Presentation.Templates
             parameters.Tags.Set(ImportTexturesKey, window.Parameters.ImportTextures);
             parameters.Tags.Set(ImportSkeletonKey, window.Parameters.ImportSkeleton);
             parameters.Tags.Set(SkeletonToUseKey, skeletonToReuse);
+            parameters.Tags.Set(ImportAnimationsKey, window.Parameters.ImportAnimations);
+            var modelToReuse = window.Parameters.ReuseModel ? window.Parameters.ModelToReuse : null;
+            parameters.Tags.Set(ModelToReuseKey, modelToReuse);
 
             // Save settings
             ModelFromFileTemplateSettings.ImportMaterials.SetValue(window.Parameters.ImportMaterials, profile);
@@ -102,6 +140,9 @@ namespace Stride.Assets.Presentation.Templates
             ModelFromFileTemplateSettings.ImportSkeleton.SetValue(window.Parameters.ImportSkeleton, profile);
             skeletonId = AttachedReferenceManager.GetAttachedReference(skeletonToReuse)?.Id ?? AssetId.Empty;
             ModelFromFileTemplateSettings.DefaultSkeleton.SetValue(skeletonId, profile);
+            ModelFromFileTemplateSettings.ImportAnimations.SetValue(window.Parameters.ImportAnimations, profile);
+            modelId = AttachedReferenceManager.GetAttachedReference(modelToReuse)?.Id ?? AssetId.Empty;
+            ModelFromFileTemplateSettings.DefaultSkeleton.SetValue(modelId, profile);
             parameters.Package.UserSettings.Save();
 
             return true;
@@ -118,13 +159,17 @@ namespace Stride.Assets.Presentation.Templates
             var importTextures = parameters.Tags.Get(ImportTexturesKey);
             var importSkeleton = parameters.Tags.Get(ImportSkeletonKey);
             var skeletonToReuse = parameters.Tags.Get(SkeletonToUseKey);
+            var importAnimations = parameters.Tags.Get(ImportAnimationsKey);
+            var modelToReuse = parameters.Tags.Get(ModelToReuseKey);
 
             var importParameters = new AssetImporterParameters { Logger = parameters.Logger };
             importParameters.InputParameters.Set(ModelAssetImporter.DeduplicateMaterialsKey, deduplicateMaterials);
+            importParameters.InputParameters.Set(ModelAssetImporter.AvailableAnimationsKey, availableAnimations);
             importParameters.SelectedOutputTypes.Add(typeof(ModelAsset), true);
             importParameters.SelectedOutputTypes.Add(typeof(MaterialAsset), importMaterials);
             importParameters.SelectedOutputTypes.Add(typeof(TextureAsset), importTextures);
             importParameters.SelectedOutputTypes.Add(typeof(SkeletonAsset), importSkeleton);
+            importParameters.SelectedOutputTypes.Add(typeof(AnimationAsset), importAnimations);
 
             var importedAssets = new List<AssetItem>();
 
@@ -145,6 +190,14 @@ namespace Stride.Assets.Presentation.Templates
                     if (skeletonToReuse != null)
                     {
                         model.Skeleton = skeletonToReuse;
+                    }
+                }
+
+                foreach (var animation in assets.Select(x => x.Asset).OfType<AnimationAsset>())
+                {
+                    if (modelToReuse != null)
+                    {
+                        animation.PreviewModel = modelToReuse;
                     }
                 }
 

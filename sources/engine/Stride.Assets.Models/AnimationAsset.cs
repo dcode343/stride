@@ -60,12 +60,22 @@ namespace Stride.Assets.Models
         public override UFile MainSource => Source;
 
         /// <summary>
+        /// Animation name within the model file
+        /// </summary>
+        /// <userdoc>
+        /// Animation name within the model file for importing specific animation.
+        /// </userdoc>
+        [DataMember(0)]
+        [Display("Animation name")]
+        public string AnimationName { get; set; }
+
+        /// <summary>
         /// Enable clipping of the animation duration
         /// </summary>
         /// <userdoc>
         /// Enable clipping of the animation duration, constraining start and end frames.
         /// </userdoc>
-        [DataMember(0)]
+        [DataMember(5)]
         [Display("Clip duration", Expand = ExpandRule.Always)]
         public AnimationAssetDuration ClipDuration { get; set; }
 

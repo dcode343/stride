@@ -43,7 +43,7 @@ namespace Stride.Assets.Models
         }
 
         /// <inheritdoc/>
-        public override void GetAnimationDuration(UFile localPath, Logger logger, AssetImporterParameters importParameters, out TimeSpan startTime, out TimeSpan endTime)
+        public override void GetAnimationDuration(UFile localPath, Logger logger, AssetImporterParameters importParameters, string animationName, out TimeSpan startTime, out TimeSpan endTime)
         {
             var meshConverter = new Importer.AssimpNET.MeshConverter(logger);
             var sceneData = meshConverter.ConvertAnimation(localPath.FullPath, "");

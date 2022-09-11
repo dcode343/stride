@@ -1994,6 +1994,7 @@ public:
 			if (extractTextureDependencies)
 				entityInfo->TextureDependencies = ExtractTextureDependenciesNoInit();
 			entityInfo->AnimationNodes = animationConverter->ExtractAnimationNodesNoInit();
+			entityInfo->AnimationStacks = animationConverter->GetAnimationStackNames();
 			auto models = ExtractModelNoInit();
 			entityInfo->Models = models->Models;
 			entityInfo->Materials = models->Materials;
@@ -2008,14 +2009,14 @@ public:
 		return nullptr;
 	}
 
-	double GetAnimationDuration(String^ inputFileName)
+	double GetAnimationDuration(String^ inputFileName, String^ animationName)
 	{
 		try
 		{
 			Initialize(inputFileName, nullptr, ImportConfiguration::ImportEntityConfig());
 
 			auto animationConverter = gcnew AnimationConverter(logger, sceneMapping);
-			auto animationData = animationConverter->ProcessAnimation(inputFilename, "", true);
+			auto animationData = animationConverter->ProcessAnimation(inputFilename, "", animationName, true);
 
 			return animationData->Duration.TotalSeconds;
 		}
@@ -2082,14 +2083,14 @@ public:
 		return nullptr;
 	}
 
-	AnimationInfo^ ConvertAnimation(String^ inputFilename, String^ vfsOutputFilename, bool importCustomAttributeAnimations)
+	AnimationInfo^ ConvertAnimation(String^ inputFilename, String^ vfsOutputFilename, String^ animationName, bool importCustomAttributeAnimations)
 	{
 		try
 		{
 			Initialize(inputFilename, vfsOutputFilename, ImportConfiguration::ImportAnimationsOnly());
 
 			auto animationConverter = gcnew AnimationConverter(logger, sceneMapping);
-			return animationConverter->ProcessAnimation(inputFilename, vfsOutputFilename, importCustomAttributeAnimations);
+			return animationConverter->ProcessAnimation(inputFilename, vfsOutputFilename, animationName, importCustomAttributeAnimations);
 		}
 		finally
 		{

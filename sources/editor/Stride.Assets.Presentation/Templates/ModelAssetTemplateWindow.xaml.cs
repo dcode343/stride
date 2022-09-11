@@ -11,6 +11,9 @@ using Stride.Core.Presentation.Quantum.ViewModels;
 using Stride.Core.Presentation.ViewModel;
 using Stride.Core.Quantum;
 using Stride.Rendering;
+using System.Collections.Generic;
+using Stride.Core.IO;
+using Stride.Assets.Models;
 
 namespace Stride.Assets.Presentation.Templates
 {
@@ -27,6 +30,7 @@ namespace Stride.Assets.Presentation.Templates
             }
 
             public Skeleton Skeleton { get; set; }
+            public Model Model { get; set; }
 
             bool IPropertyProviderViewModel.CanProvidePropertiesViewModel => true;
 
@@ -47,6 +51,10 @@ namespace Stride.Assets.Presentation.Templates
         private bool importSkeleton = true;
         private bool dontImportSkeleton;
         private bool reuseSkeleton;
+
+        private bool importAnimations = true;
+        private Dictionary<UFile, List<SelectableAnimation>> availableAnimations;
+        private bool reuseModel;
 
         public ImportModelFromFileViewModel(IViewModelServiceProvider serviceProvider)
             : base(serviceProvider)
@@ -69,6 +77,13 @@ namespace Stride.Assets.Presentation.Templates
         public bool ReuseSkeleton { get { return reuseSkeleton; } set { SetValue(ref reuseSkeleton, value); } }
 
         public Skeleton SkeletonToReuse { get { return referenceContainer.Skeleton; } set { referenceContainer.Skeleton = value; } }
+
+        public bool ImportAnimations { get { return importAnimations; } set { SetValue(ref importAnimations, value); } }
+
+        public bool ReuseModel { get { return reuseModel; } set { SetValue(ref reuseModel, value); } }
+        public Model ModelToReuse { get { return referenceContainer.Model; } set { referenceContainer.Model = value; } }
+
+        public Dictionary<UFile, List<SelectableAnimation>> AvailableAnimations { get { return availableAnimations; } set { SetValue(ref availableAnimations, value); } }
 
         public GraphViewModel ReferenceViewModel { get; }
     }
